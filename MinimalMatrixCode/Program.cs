@@ -1,5 +1,7 @@
 ﻿
 using System.Text;
+using System.Collections.Generic;
+
 
 class GraphReader
 {
@@ -10,7 +12,7 @@ class GraphReader
         string Code = init; // исходный код
         int N;
         byte[,]? Matrix;
-        bool isDiGraph = init[0] == ':' || init[0] == '&'; // sparce6 выводит графы с ":" , а как генерировать чисто digraph6 я не нашел
+        bool isDiGraph = init[0] == '&';
 
         public override string ToString()
         {
@@ -76,7 +78,7 @@ class GraphReader
                         int y = bitPos % N;
                         if (x >= N || y >= N) continue; // пропуск лишних бит. их не много на скорость это не повлияет
                         matrix[x, y] = (byte)(bit == '1' ? 1 : 0); // записываем в матрицу
-                        Console.WriteLine($"{bitPos} : {bit} : {bits}");
+                        // Console.WriteLine($"{bitPos} : {bit} : {bits}");
                         bitPos++;
                     }
                 }
@@ -94,6 +96,59 @@ class GraphReader
             }
             return (i, posNumber);
         }
+    
+        public void GetMinimalCode()
+        {
+            int[] colors = new int[N];
+
+            if (Matrix == null) return;
+
+            // раскрашиваем вершины по степеням соседей (инициализация)
+            for (int i = 0; i < N; i++)
+            {
+                int sum = 0;
+                for (int j = 0; j < N; j++)
+                {
+                    sum += Matrix[i, j];
+                }
+                colors[i] = sum;
+            }
+
+            foreach (int color in colors)
+            {
+                Console.Write($"{color} | ");
+            }
+            
+            // int[] newColors = new int[N]; // по умолчанию заполнен нулями
+            // while (!newColors.SequenceEqual(colors)) // поэлементное сравнение
+            // {
+            //     newColors = new int[N];
+            //     for (int i = 0; i < N; i++)
+            //     {
+            //         int hash = colors[i];
+            //         int exponent = 1;
+            //         for (int j = 0; j < N; j++)
+            //         {
+            //             if (i == j) continue;
+            //             exponent *= N;
+            //             hash += colors[j] * exponent;
+            //         }
+            //         newColors[i] = hash;
+            //     }
+            //     colors = (int[])newColors.Clone();
+            // }
+
+            // Console.WriteLine();
+            // foreach (int color in colors)
+            // {
+            //     Console.Write($"{color} | ");
+            // }
+
+            // получили разбиение. 
+            // теперь можем делать перестановки этих разбиений
+            
+        }
+    
     }
 
     public void ReadGraphs(string filename) // функция чтения файла в объект GraphReader
@@ -104,10 +159,11 @@ class GraphReader
             Graph graph = new Graph(code);
             graph.ParseGraph(); // парсим его матрицу, количество вершин
             graphs.Add(graph); // добавляем его
-            Console.WriteLine(graph);
+            // Console.WriteLine(graph);
         }
         Graph6 = graphs.ToArray();
     }
+
 } 
 
 class Program
@@ -118,6 +174,8 @@ class Program
 
         GraphReader graphReader = new GraphReader(); // инициализируем
         graphReader.ReadGraphs(filename); // считываем графы
+
+        graphReader.Graph6![3].GetMinimalCode();
     }
 }
 
