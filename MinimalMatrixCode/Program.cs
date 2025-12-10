@@ -41,6 +41,7 @@ class GraphReader
 
                 // создаем матрицу byte (n * n)
                 byte[,] matrix = new byte[N,N];
+
                 int bitPos = 0;
                 for (int i = 1; i < Code.Length; i++) // заполняем ее
                 {
@@ -53,6 +54,30 @@ class GraphReader
                         matrix[coord.x, coord.y] = (byte)(bit == '1' ? 1 : 0); // записываем в матрицу
                         matrix[coord.y, coord.x] = (byte)(bit == '1' ? 1 : 0); // и в зеркальное от гл. диагонали положение
                         bitPos++; // увеличиваем текущую позицию
+                    }
+                }
+                Matrix = matrix;
+            }
+            else
+            {
+                N = Code[1] - 63;
+
+                // создаем матрицу byte (n * n)
+                byte[,] matrix = new byte[N,N];
+
+                int bitPos = 0;
+                for (int i = 2; i < Code.Length; i++)
+                {
+                    int symbol = Code[i] - 63;
+                    string bits = Convert.ToString(symbol, 2).PadLeft(6, '0'); // поулучаем 6 битовую строку
+                    foreach (char bit in bits)
+                    {
+                        int x = bitPos / N;
+                        int y = bitPos % N;
+                        if (x >= N || y >= N) continue; // пропуск лишних бит. их не много на скорость это не повлияет
+                        matrix[x, y] = (byte)(bit == '1' ? 1 : 0); // записываем в матрицу
+                        Console.WriteLine($"{bitPos} : {bit} : {bits}");
+                        bitPos++;
                     }
                 }
                 Matrix = matrix;
