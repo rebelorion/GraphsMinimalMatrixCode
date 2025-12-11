@@ -1,11 +1,12 @@
 ﻿
+using System.Numerics;
 using System.Text;
 
 class GraphReader
 {
     public Graph[]? Graph6 {private set; get; }
     public Graph[]? GraphResult6 {private set; get; }
-    public int[]? MinimalCodes {private set; get; }
+    public BigInteger[]? MinimalCodes {private set; get; }
 
     public class Graph(string init)
     {
@@ -97,7 +98,7 @@ class GraphReader
             return (i, posNumber);
         }
     
-        public (int code, int[] permutation) GetMinimalCode()
+        public (BigInteger code, int[] permutation) GetMinimalCode()
         {
             int[] colors = new int[N];
 
@@ -131,10 +132,13 @@ class GraphReader
             int[] others = others1.ToArray();
             int[] minOthers = new int[others.Length];
 
-            int minimalCode = int.MaxValue;
+            // инициализируем
+            BigInteger tryCode;
+            BigInteger minimalCode = BigInteger.Pow(2, N * N) + 1;
+
             do // на каждой итерации генерируем перестановку
             {
-                int tryCode = GetCode(minimalVert, others);
+                tryCode = GetCode(minimalVert, others);
                 if (tryCode < minimalCode)
                 {
                     minimalCode = tryCode;
@@ -147,12 +151,12 @@ class GraphReader
         }
 
         // вычисляет код на основе перестановки
-        int GetCode(int lead, int[] permutation)
+        BigInteger GetCode(int lead, int[] permutation)
         {
             if (Matrix == null) return 0;
 
-            int result = 0;
-            int exponent = 1;
+            BigInteger result = 0;
+            BigInteger exponent = 1;
 
             for (int i = N-1; i >= 0; i--)
             {
@@ -161,8 +165,8 @@ class GraphReader
                 int jBound = isDiGraph ? -1 : i;
                 for (int j = N-1; j > jBound; j--)
                 {
-                    // если это диграф6 и мы попали в главную диагональ, то 
-                    if (isDiGraph && i == j) continue;
+                    // // если это диграф6 и мы попали в главную диагональ, то 
+                    // if (isDiGraph && i == j) continue;
                     // получаем число в матрице (0 или 1)
                     // j - 1 так как у нас массив permutations не содержит lead вершину
                     int x_idx = i > 0 ? permutation[i - 1] : lead;
@@ -218,7 +222,7 @@ class GraphReader
         if (Graph6 == null) return;
 
         List<Graph> resGraphs = new List<Graph>();
-        List<int> minCodes = new List<int>();
+        List<BigInteger> minCodes = new List<BigInteger>();
         foreach (Graph graph in Graph6)
         {
             var minParam = graph.GetMinimalCode();
