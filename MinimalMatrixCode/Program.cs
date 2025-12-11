@@ -1,18 +1,18 @@
 ﻿
 using System.Text;
-using System.Collections.Generic;
-
 
 class GraphReader
 {
     public Graph[]? Graph6 {private set; get; }
+    public Graph[]? GraphResult6 {private set; get; }
+    public int[]? MinimalCodes {private set; get; }
 
     public class Graph(string init)
     {
-        string Code = init; // исходный код
-        int N;
-        byte[,]? Matrix;
-        bool isDiGraph = init[0] == '&';
+        public string Code = init; // исходный код
+        public int N;
+        public byte[,]? Matrix;
+        internal bool isDiGraph = init[0] == '&';
 
         public override string ToString()
         {
@@ -97,11 +97,11 @@ class GraphReader
             return (i, posNumber);
         }
     
-        public int GetMinimalCode()
+        public (int code, int[] permutation) GetMinimalCode()
         {
             int[] colors = new int[N];
 
-            if (Matrix == null) return -1;
+            if (Matrix == null) return (-1, new int[1]);
 
             int minimalVert = 0;
             int minimalDegree = N + 1;
@@ -129,6 +129,7 @@ class GraphReader
                 others1.Add(i);
             }
             int[] others = others1.ToArray();
+            int[] minOthers = new int[others.Length];
 
             int minimalCode = int.MaxValue;
             do // на каждой итерации генерируем перестановку
@@ -137,40 +138,12 @@ class GraphReader
                 if (tryCode < minimalCode)
                 {
                     minimalCode = tryCode;
+                    others.CopyTo(minOthers, 0);
                 }
 
             } while (NextPermutation(others)); 
 
-            return minimalCode;
-
-            // int[] newColors = new int[N]; // по умолчанию заполнен нулями
-            // while (!newColors.SequenceEqual(colors)) // поэлементное сравнение
-            // {
-            //     newColors = new int[N];
-            //     for (int i = 0; i < N; i++)
-            //     {
-            //         int hash = colors[i];
-            //         int exponent = 1;
-            //         for (int j = 0; j < N; j++)
-            //         {
-            //             if (i == j) continue;
-            //             exponent *= N;
-            //             hash += colors[j] * exponent;
-            //         }
-            //         newColors[i] = hash;
-            //     }
-            //     colors = (int[])newColors.Clone();
-            // }
-
-            // Console.WriteLine();
-            // foreach (int color in colors)
-            // {
-            //     Console.Write($"{color} | ");
-            // }
-
-            // получили разбиение. 
-            // теперь можем делать перестановки этих разбиений
-            
+            return (minimalCode, new[] { minimalVert }.Concat(minOthers).ToArray());
         }
 
         // вычисляет код на основе перестановки
@@ -180,19 +153,27 @@ class GraphReader
 
             int result = 0;
             int exponent = 1;
+
             for (int i = N-1; i >= 0; i--)
             {
-                for (int j = N-1; j > i; j--)
+                // вариант для graph6 (считает только выше главной диагонали)
+                // для digraph6 (все кроме главной диагонали)
+                int jBound = isDiGraph ? -1 : i;
+                for (int j = N-1; j > jBound; j--)
                 {
+                    // если это диграф6 и мы попали в главную диагональ, то 
+                    if (isDiGraph && i == j) continue;
                     // получаем число в матрице (0 или 1)
                     // j - 1 так как у нас массив permutations не содержит lead вершину
-                    int multiplier = i != 0 ? 
-                        Matrix[permutation[i - 1], permutation[j - 1]] : // то есть если мы смотрим чисто по массиву permutation
-                        Matrix[lead, permutation[j - 1]]; // или смотрим верхнюю строку, которая lead вершина
+                    int x_idx = i > 0 ? permutation[i - 1] : lead;
+                    int y_idx = j > 0 ? permutation[j - 1] : lead;
+                    int multiplier = Matrix[x_idx, y_idx];
+
                     result += multiplier * exponent;
                     exponent *= 2;
                 }
             }
+
             return result;
         }
 
@@ -232,6 +213,75 @@ class GraphReader
         Graph6 = graphs.ToArray();
     }
 
+    public void MakeResultGraphs()
+    {
+        if (Graph6 == null) return;
+
+        List<Graph> resGraphs = new List<Graph>();
+        List<int> minCodes = new List<int>();
+        foreach (Graph graph in Graph6)
+        {
+            var minParam = graph.GetMinimalCode();
+            string code = MakeCode(graph, minParam.permutation); // получаем код для графа
+
+            // в целом теперь этот же код считываем с помощью ParceGraph при создании графа
+            Graph resGraph = new Graph(code);
+            resGraph.ParseGraph(); // парсим его
+            // заносим в resGraphs и minCodes
+            minCodes.Add(minParam.code);
+            resGraphs.Add(resGraph);
+        }
+        
+        MinimalCodes = minCodes.ToArray();
+        GraphResult6 = resGraphs.ToArray(); // записываем их в массив. из которого потом считывать будем
+    }
+
+    public string MakeCode(Graph graph, int[] permutation)
+    {
+        StringBuilder graph6bitCode = new StringBuilder(); // строка вида "01101010100001..."
+        if (!graph.isDiGraph)
+        {
+            for (int i = 0; i < graph.N; i++)
+            {
+                for (int j = 0; j < i; j++)
+                {
+                    string symbol = graph.Matrix![permutation[j], permutation[i]] == 1 ? "1" : "0";
+                    graph6bitCode.Append(symbol);
+                }
+            }
+        }
+        else
+        {
+            for (int i = 0; i < graph.N; i++)
+            {
+                for (int j = 0; j < graph.N; j++)
+                {
+                    string symbol = graph.Matrix![permutation[i], permutation[j]] == 1 ? "1" : "0";
+                    graph6bitCode.Append(symbol);
+                }
+            }
+        }
+    
+        // теперь код 1010101010 преобразуем в буквы + "&" в начале для диграфа
+        // а также символ соответствующий количеству вершин
+        string g6bitCode = graph6bitCode.ToString();
+        char nov = (char)(graph.N + 63); // первый символ - кол-во вершин
+        StringBuilder graph6Code = graph.isDiGraph? new StringBuilder($"&{nov}") : new StringBuilder($"{nov}");
+        for (int i = 0; i < g6bitCode.Length; i += 6) // берем кусками по 6 бит
+        {
+            string symbolBits = g6bitCode.Substring(i, Math.Min(6, g6bitCode.Length - i)); // ограничиваем остатком
+            symbolBits = symbolBits.PadRight(6, '0'); // добавляем биты если их до 6ти не хватает
+
+            byte symbolByte = Convert.ToByte(symbolBits, 2);
+            symbolByte += 63; // добавляем 63
+
+            char symbolChar = (char)symbolByte; // переводим в ASCII
+            graph6Code.Append(symbolChar); // добавляем символ ASCII в итоговую строку
+        }
+
+        return graph6Code.ToString();
+    }
+
 } 
 
 class Program
@@ -243,10 +293,20 @@ class Program
         GraphReader graphReader = new GraphReader(); // инициализируем
         graphReader.ReadGraphs(filename); // считываем графы
 
-        int minimalCode = graphReader.Graph6![1].GetMinimalCode();
-        Console.WriteLine(graphReader.Graph6[1]);
-
-        Console.WriteLine(minimalCode);
+        // теперь делаем минимальные коды и графы в соответствующем формате (graph6 | digraph6)
+        graphReader.MakeResultGraphs();
+        
+        // выводим получившееся в файл в виде:
+        StringBuilder result = new StringBuilder
+        ("( исходный код графа | его минимальный матричный код | код графа соответствующей перестановки вершин )\n");
+        int N = graphReader.Graph6!.Length;
+        for (int i = 0; i < N; i++) // идем по всем графам
+        {
+            result.Append(graphReader.Graph6[i].Code + " | "); // добавляем код исходного графа
+            result.Append(graphReader.MinimalCodes![i] + " | "); // добавляем минимальный матричный код
+            result.Append(graphReader.GraphResult6![i].Code + "\n"); // добавляем граф по перестановке вершин соответствующий минимальному матричному коду
+        }
+        File.WriteAllText(filename + "_result.txt", result.ToString()); // записываем в файл
     }
 }
 
