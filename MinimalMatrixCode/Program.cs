@@ -292,6 +292,11 @@ class Program
 {
     static void Main(string[] args)
     {
+        if (args.Length < 1)
+        {
+            throw new Exception("\n\tВ качестве входного параметра необходимо указать путь к файлу! \n\tНапример: dotnet run .\\graphs.txt");
+        }
+
         string filename = args[0]; // файл - первый и единственный аргумент
 
         GraphReader graphReader = new GraphReader(); // инициализируем
